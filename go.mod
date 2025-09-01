@@ -1,4 +1,4 @@
-module go-force
+module github.com/dansbeer/go-forge
 
 go 1.24.5
 
