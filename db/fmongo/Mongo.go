@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"go-force/fstring/fid"
 	"log"
 	"math"
 	"os"
@@ -17,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dansbeer/go-forge/fstring/fid"
 	"github.com/getsentry/sentry-go"
 	"github.com/logrusorgru/aurora"
 	"github.com/tidwall/gjson"
