@@ -100,7 +100,8 @@ func (sc *SQLConn) SetRedisConn(redisConn *fredis.Redis) *SQLConn {
 }
 
 func (sc *SQLConn) connect() (db *gorm.DB, err error) {
-	if sc.ConnectionType == SQLConn_Type_Clickhouse {
+	switch sc.ConnectionType {
+	case SQLConn_Type_Clickhouse:
 		db, err = gorm.Open(clickhouse.Open(sc.dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Info)})
 		if err != nil {
 			fmt.Printf("o: %+v\n", sc)
@@ -109,7 +110,7 @@ func (sc *SQLConn) connect() (db *gorm.DB, err error) {
 			}
 			return
 		}
-	} else if sc.ConnectionType == SQLConn_Type_Postgre {
+	case SQLConn_Type_Postgre:
 		db, err = gorm.Open(postgres.Open(sc.dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Info)})
 		if err != nil {
 			fmt.Printf("o: %+v\n", sc)
