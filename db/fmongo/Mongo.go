@@ -587,9 +587,16 @@ func (umongo *MongoDbUtil) FindWrapError(filter bson.M,
 	if skip > 0 {
 		skip--
 	}
-	if requestPagination.Size == 0 {
-		requestPagination.Size = 3
+	// if requestPagination.Size == 0 {
+	// 	requestPagination.Size = 3
+	// }
+
+	if requestPagination.Size != 0 {
+		skip *= requestPagination.Size
+		findOptions.Skip = &skip
+		findOptions.Limit = &requestPagination.Size
 	}
+	
 	skip *= requestPagination.Size
 	findOptions.Skip = &skip
 	findOptions.Limit = &requestPagination.Size
