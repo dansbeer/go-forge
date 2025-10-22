@@ -130,47 +130,66 @@ func close(db *gorm.DB) {
 }
 
 func (sc *SQLConn) BaseExec(query string, ptrDecodeTo interface{}) (err error) {
-	log.Println("Executing Query: \n", aurora.Magenta(query))
+	log.Println("Executing Query:\n", aurora.Magenta(query))
 
 	cacheKey := fmt.Sprintf("%s__%s", sc.ConnectionType, query)
+
+	// Jika caching dimatikan → langsung query ke database
+	if sc.disableCache {
+		var db *gorm.DB
+		db, err = sc.connect()
+		if err != nil {
+			log.Println("DB connection error:", err)
+			return
+		}
+		defer close(db)
+
+		if queryRes := db.Raw(query).Scan(ptrDecodeTo); queryRes.Error != nil {
+			log.Println("DB query error:", queryRes.Error)
+			return queryRes.Error
+		}
+		return nil
+	}
+
+	// --- Jika caching diaktifkan ---
 	var redis *fredis.Redis
 	if sc.redisConn == nil {
 		redis, err = fredis.NewRedisCacheConnection()
 		if err != nil {
-			log.Println(err)
+			log.Println("Redis connection error:", err)
 			return
 		}
 	} else {
 		redis = sc.redisConn
 	}
 
-	if found := redis.Get(cacheKey, ptrDecodeTo); !found || sc.disableCache {
-		var db *gorm.DB
-		db, err = sc.connect()
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		defer close(db)
-
-		if queryRes := db.Raw(query).Scan(ptrDecodeTo); queryRes.Error != nil {
-			fmt.Println(aurora.Yellow(query))
-			log.Println(queryRes.Error)
-			return
-		}
-
-		if !sc.disableCache {
-			res, _ := json.Marshal(ptrDecodeTo)
-			err = redis.Set(cacheKey, string(res), 6*time.Hour)
-			if err != nil {
-				log.Println(err)
-			}
-			redis.Get(cacheKey, ptrDecodeTo) //? To prevent different type data from DB SQL & Redis, always return only from Redis
-		}
-	} else {
+	// Cek apakah data ada di cache
+	if found := redis.Get(cacheKey, ptrDecodeTo); found {
 		fmt.Println(aurora.Red("CACHED"))
+		return nil
 	}
-	return
+
+	// Jika tidak ditemukan di cache → ambil dari DB
+	var db *gorm.DB
+	db, err = sc.connect()
+	if err != nil {
+		log.Println("DB connection error:", err)
+		return
+	}
+	defer close(db)
+
+	if queryRes := db.Raw(query).Scan(ptrDecodeTo); queryRes.Error != nil {
+		log.Println("DB query error:", queryRes.Error)
+		return queryRes.Error
+	}
+
+	// Simpan ke cache
+	res, _ := json.Marshal(ptrDecodeTo)
+	if err = redis.Set(cacheKey, string(res), 6*time.Hour); err != nil {
+		log.Println("Redis set error:", err)
+	}
+
+	return nil
 }
 
 func (sc *SQLConn) Exec(query string) (res []byte, err error) {
